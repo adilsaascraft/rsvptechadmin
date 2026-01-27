@@ -161,7 +161,7 @@ export default function AddGuestForm({
                     <Input
                       type="number"
                       min={0}
-                      max={10}
+                      max={100}
                       value={field.value}
                       onChange={(e) => field.onChange(Number(e.target.value))}
                     />

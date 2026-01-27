@@ -53,6 +53,7 @@ export default function InvitationPage() {
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: { accompanies: [] },
+    mode: 'onTouched',
   })
 
   const { fields, replace } = useFieldArray({
@@ -89,9 +90,8 @@ export default function InvitationPage() {
             mobile: '',
           }))
         )
-      } catch (err: any) {
+      } catch {
         setInvalid(true)
-        toast.error(err.message || 'Invitation link expired')
       } finally {
         setLoading(false)
       }
@@ -118,6 +118,12 @@ export default function InvitationPage() {
       })
 
       setSubmitted(true)
+
+      toast.success(`Thank you ${guestName}`, {
+        description:
+          'Your accompanying guests have been registered successfully.',
+        duration: 6000,
+      })
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong')
     } finally {
@@ -129,7 +135,7 @@ export default function InvitationPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-r from-[#F0FAFF] to-white">
-      {/* ================= HEADER ================= */}
+      {/* ================= HEADER IMAGE ================= */}
       <div className="relative w-full h-[180px] sm:h-[220px] md:h-[280px] lg:h-[300px] overflow-hidden">
         <Image
           src="https://res.cloudinary.com/dymanaa1j/image/upload/v1769528693/12_codogj.png"
@@ -137,7 +143,7 @@ export default function InvitationPage() {
           fill
           priority
           sizes="100vw"
-          className="object-fit object-center"
+          className="object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-white/60" />
       </div>
@@ -145,127 +151,194 @@ export default function InvitationPage() {
       {/* ================= CONTENT ================= */}
       <div className="max-w-4xl mx-auto px-4 mt-2 pb-20">
         <Card className="shadow-xl border-none">
-          <CardHeader className="text-center">
-            {loading ? (
-              <>
-                <Skeleton className="h-6 w-48 mx-auto" />
-                <Skeleton className="h-4 w-32 mx-auto mt-2" />
-              </>
-            ) : (
-              <>
-                <CardTitle className="text-2xl text-[#3AC1F6]">
-                  Welcome {guestName}
-                </CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Registration No: <b>{regNum}</b>
-                </p>
-              </>
-            )}
-          </CardHeader>
 
-          <CardContent>
-            {/* LOADING */}
-            {loading && (
-              <div className="space-y-4">
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-                <Skeleton className="h-10 w-full" />
-              </div>
-            )}
+          {/* ================= INVALID LINK (ONLY SCREEN) ================= */}
+          {!loading && invalid && (
+            <CardContent className="py-24 text-center">
+              <div className="flex flex-col items-center space-y-6">
+                <div className="w-20 h-[2px] bg-gradient-to-r from-transparent via-red-400 to-transparent" />
 
-            {/* INVALID LINK */}
-            {!loading && invalid && (
-              <div className="text-center py-20">
-                <h2 className="text-xl font-semibold text-red-600">
+                <h2 className="text-3xl font-serif font-semibold text-red-600">
                   Invitation Link Expired
                 </h2>
-                <p className="mt-2 text-muted-foreground">
-                  This link has already been used or is no longer valid.
+
+                <p className="max-w-md text-base text-muted-foreground leading-relaxed">
+                  This invitation link has already been used or is no longer
+                  valid. For assistance, please contact the event organizers.
                 </p>
-              </div>
-            )}
 
-            {/* SUCCESS */}
-            {!loading && submitted && !invalid && (
-              <div className="text-center py-16">
-                <h2 className="text-xl font-semibold text-green-600">
-                  Thank you!
-                </h2>
-                <p className="mt-2 text-muted-foreground">
-                  Your accompanying guests have been registered successfully.
+                <p className="text-sm italic text-muted-foreground">
+                  With warm regards,
+                  <br />
+                  <span className="font-medium text-[#3AC1F6]">
+                    The Tendulkar Family
+                  </span>
                 </p>
+
+                <div className="w-24 h-[1px] bg-gradient-to-r from-transparent via-red-300 to-transparent" />
               </div>
-            )}
+            </CardContent>
+          )}
 
-            {/* FORM */}
-            {!loading && !submitted && !invalid && (
-              <form
-                onSubmit={form.handleSubmit(onSubmit)}
-                className="space-y-8"
-              >
-                {fields.map((field, index) => (
-                  <div
-                    key={field.id}
-                    className="border rounded-lg p-4 bg-[#FAFDFF]"
-                  >
-                    <h3 className="font-semibold mb-4 text-[#3AC1F6]">
-                      Accompany {index + 1}
-                    </h3>
+          {/* ================= NORMAL FLOW ================= */}
+          {!invalid && (
+            <>
+              {/* ================= HEADER ================= */}
+              <CardHeader className="text-center">
+                {loading && (
+                  <>
+                    <Skeleton className="h-6 w-56 mx-auto" />
+                    <Skeleton className="h-4 w-40 mx-auto mt-2" />
+                  </>
+                )}
 
-                    <div className="grid gap-3">
-                      <Input
-                        placeholder="Full Name"
-                        {...form.register(`accompanies.${index}.name`)}
-                      />
-                      {form.formState.errors.accompanies?.[index]?.name && (
-                        <p className="text-sm text-red-500">
-                          {
-                            form.formState.errors.accompanies[index]?.name
-                              ?.message
-                          }
-                        </p>
-                      )}
+                {!loading && !submitted && (
+                  <>
+                    <CardTitle className="text-2xl sm:text-3xl text-[#3AC1F6] font-semibold">
+                      Welcome, {guestName}
+                    </CardTitle>
 
-                      <Input
-                        type="email"
-                        placeholder="Email"
-                        {...form.register(`accompanies.${index}.email`)}
-                      />
-                      {form.formState.errors.accompanies?.[index]?.email && (
-                        <p className="text-sm text-red-500">
-                          {
-                            form.formState.errors.accompanies[index]?.email
-                              ?.message
-                          }
-                        </p>
-                      )}
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Registration No:&nbsp;
+                      <span className="font-medium text-foreground">
+                        {regNum}
+                      </span>
+                    </p>
 
-                      <Input
-                        placeholder="Mobile Number"
-                        {...form.register(`accompanies.${index}.mobile`)}
-                      />
-                      {form.formState.errors.accompanies?.[index]?.mobile && (
-                        <p className="text-sm text-red-500">
-                          {
-                            form.formState.errors.accompanies[index]?.mobile
-                              ?.message
-                          }
-                        </p>
-                      )}
+                    <div className="mt-4 max-w-xl mx-auto">
+                      <p className="text-base text-[#2C3E50] leading-relaxed">
+                        We are delighted to extend this invitation to you and
+                        your family for the upcoming marriage ceremony.
+                      </p>
+
+                      <p className="text-base text-[#2C3E50] leading-relaxed mt-2">
+                        As a valued guest, you may kindly register the details
+                        of your accompanying family members below to help us
+                        ensure a smooth and personalized experience.
+                      </p>
+
+                      <p className="text-sm text-muted-foreground mt-3 italic">
+                        Your presence will truly add grace to the occasion.
+                      </p>
                     </div>
-                  </div>
-                ))}
+                  </>
+                )}
 
-                <Button
-                  type="submit"
-                  disabled={submitting}
-                  className="w-full bg-[#3AC1F6] hover:bg-[#1FAEE8] text-white"
-                >
-                  {submitting ? 'Submitting...' : 'Submit Accompany Details'}
-                </Button>
-              </form>
-            )}
-          </CardContent>
+                {!loading && submitted && (
+                  <>
+                    <CardTitle className="text-3xl text-green-600 font-semibold">
+                      Thank You, {guestName}
+                    </CardTitle>
+
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Registration No.&nbsp;
+                      <span className="font-medium text-foreground">
+                        {regNum}
+                      </span>
+                    </p>
+                  </>
+                )}
+              </CardHeader>
+
+              {/* ================= BODY ================= */}
+              <CardContent>
+                {/* ================= SUCCESS BODY ================= */}
+                {submitted && (
+                  <div className="text-center py-12 max-w-2xl mx-auto">
+                    <p className="text-lg text-[#2C3E50] leading-relaxed">
+                      We are truly honored to have your presence at this
+                      auspicious celebration.
+                    </p>
+
+                    <p className="text-lg text-[#2C3E50] leading-relaxed mt-4">
+                      Your accompanying guest details have been successfully
+                      registered. We look forward to welcoming you and your
+                      family as we celebrate this special occasion together.
+                    </p>
+
+                    <p className="mt-8 text-base font-medium text-[#3AC1F6]">
+                      With warm regards,
+                    </p>
+
+                    <p className="text-base font-semibold text-[#3AC1F6]">
+                      The Tendulkar Family
+                    </p>
+                  </div>
+                )}
+
+                {/* ================= FORM ================= */}
+                {!submitted && (
+                  <form
+                    onSubmit={form.handleSubmit(onSubmit)}
+                    className="space-y-8"
+                  >
+                    {fields.map((field, index) => (
+                      <div
+                        key={field.id}
+                        className="border rounded-lg p-4 bg-[#FAFDFF]"
+                      >
+                        <h3 className="font-semibold mb-4 text-[#3AC1F6]">
+                          Accompany {index + 1}
+                        </h3>
+
+                        <div className="grid gap-3">
+                          <Input
+                            placeholder="Full Name"
+                            {...form.register(`accompanies.${index}.name`)}
+                          />
+                          {form.formState.errors.accompanies?.[index]?.name && (
+                            <p className="text-sm text-red-500">
+                              {
+                                form.formState.errors.accompanies[index]?.name
+                                  ?.message
+                              }
+                            </p>
+                          )}
+
+                          <Input
+                            type="email"
+                            placeholder="Email"
+                            {...form.register(`accompanies.${index}.email`)}
+                          />
+                          {form.formState.errors.accompanies?.[index]?.email && (
+                            <p className="text-sm text-red-500">
+                              {
+                                form.formState.errors.accompanies[index]?.email
+                                  ?.message
+                              }
+                            </p>
+                          )}
+
+                          <Input
+                            placeholder="Mobile Number"
+                            {...form.register(`accompanies.${index}.mobile`)}
+                          />
+                          {form.formState.errors.accompanies?.[index]?.mobile && (
+                            <p className="text-sm text-red-500">
+                              {
+                                form.formState.errors.accompanies[index]?.mobile
+                                  ?.message
+                              }
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    <Button
+                      type="submit"
+                      disabled={submitting}
+                      className="w-full bg-[#3AC1F6] hover:bg-[#1FAEE8] text-white"
+                    >
+                      {submitting
+                        ? 'Submitting...'
+                        : 'Submit Accompany Details'}
+                    </Button>
+                  </form>
+                )}
+              </CardContent>
+            </>
+          )}
         </Card>
       </div>
     </div>
