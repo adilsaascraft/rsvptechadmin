@@ -86,18 +86,24 @@ export default function LoginPage() {
 {/* Ceremony Header */}
 <div
   className="
-    relative w-full
-    h-[180px] sm:h-[220px] md:h-[280px] lg:h-[340px] xl:h-[380px]
-    bg-center bg-no-repeat
-    bg-contain md:bg-cover
+    relative w-full overflow-hidden
+    h-[180px] sm:h-[220px] md:h-[280px] lg:h-[300px]
   "
-  style={{
-    backgroundImage:
-      "url('https://res.cloudinary.com/dymanaa1j/image/upload/v1769498303/sc_ozbk0g.png')",
-  }}
 >
+  {/* Banner Image */}
+  <Image
+    src="https://res.cloudinary.com/dymanaa1j/image/upload/v1769528693/12_codogj.png"
+    alt="Marriage Ceremony Banner"
+    fill
+    priority
+    sizes="100vw"
+    className="object-fit object-center"
+  />
+
+  {/* Premium Overlay */}
   <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-white/50" />
 </div>
+
 
 
 
