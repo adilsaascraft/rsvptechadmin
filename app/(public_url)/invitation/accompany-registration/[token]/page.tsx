@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { z } from 'zod'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { toast } from 'sonner'
 
 import {
   Card,
@@ -16,16 +17,13 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { toast } from 'sonner'
 
 /* ================= SCHEMA ================= */
 
 const AccompanySchema = z.object({
   name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Valid email required'),
-  mobile: z
-    .string()
-    .regex(/^\d{10}$/, 'Mobile must be 10 digits'),
+  email: z.string().email('Valid email is required'),
+  mobile: z.string().regex(/^\d{10}$/, 'Mobile must be 10 digits'),
 })
 
 const FormSchema = z.object({
@@ -37,21 +35,27 @@ type FormValues = z.infer<typeof FormSchema>
 /* ================= PAGE ================= */
 
 export default function InvitationPage() {
-  const { token } = useParams<{ token: string }>()
+  const params = useParams()
+  const token = params?.token as string
+
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
+  const [invalid, setInvalid] = useState(false)
+  const [submitted, setSubmitted] = useState(false)
 
   const [guestName, setGuestName] = useState('')
   const [regNum, setRegNum] = useState('')
   const [quota, setQuota] = useState(0)
-  const [submitted, setSubmitted] = useState(false)
 
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: { accompanies: [] },
   })
 
-  const { fields, replace } = useFieldArray({
+  const {
+    fields,
+    replace,
+  } = useFieldArray({
     control: form.control,
     name: 'accompanies',
   })
@@ -59,13 +63,19 @@ export default function InvitationPage() {
   /* ================= FETCH INVITATION ================= */
 
   useEffect(() => {
+    if (!token) {
+      setInvalid(true)
+      setLoading(false)
+      return
+    }
+
     const fetchInvitation = async () => {
       try {
         const res = await fetch(
           `${process.env.NEXT_PUBLIC_API_URL}/api/invitation/accompany-registration/${token}`
         )
 
-        if (!res.ok) throw new Error('Invalid or expired invitation')
+        if (!res.ok) throw new Error('Invalid or expired invitation link')
 
         const data = await res.json()
 
@@ -73,7 +83,6 @@ export default function InvitationPage() {
         setRegNum(data.regNum)
         setQuota(data.accompanyQuota)
 
-        // create dynamic fields
         replace(
           Array.from({ length: data.accompanyQuota }).map(() => ({
             name: '',
@@ -82,6 +91,7 @@ export default function InvitationPage() {
           }))
         )
       } catch (err: any) {
+        setInvalid(true)
         toast.error(err.message || 'Invitation link expired')
       } finally {
         setLoading(false)
@@ -111,7 +121,10 @@ export default function InvitationPage() {
         }
       )
 
-      if (!res.ok) throw new Error('Submission failed')
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.message || 'Submission failed')
+      }
 
       setSubmitted(true)
     } catch (err: any) {
@@ -132,7 +145,8 @@ export default function InvitationPage() {
           alt="Marriage Ceremony Banner"
           fill
           priority
-          className="object-fit"
+          sizes="100vw"
+          className="object-cover object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-white/60" />
       </div>
@@ -159,6 +173,7 @@ export default function InvitationPage() {
           </CardHeader>
 
           <CardContent>
+            {/* LOADING */}
             {loading && (
               <div className="space-y-4">
                 <Skeleton className="h-10 w-full" />
@@ -167,8 +182,21 @@ export default function InvitationPage() {
               </div>
             )}
 
-            {!loading && submitted && (
-              <div className="text-center py-10">
+            {/* INVALID LINK */}
+            {!loading && invalid && (
+              <div className="text-center py-20">
+                <h2 className="text-xl font-semibold text-red-600">
+                  Invitation Link Expired
+                </h2>
+                <p className="mt-2 text-muted-foreground">
+                  This link has already been used or is no longer valid.
+                </p>
+              </div>
+            )}
+
+            {/* SUCCESS */}
+            {!loading && submitted && !invalid && (
+              <div className="text-center py-16">
                 <h2 className="text-xl font-semibold text-green-600">
                   Thank you!
                 </h2>
@@ -178,7 +206,8 @@ export default function InvitationPage() {
               </div>
             )}
 
-            {!loading && !submitted && (
+            {/* FORM */}
+            {!loading && !submitted && !invalid && (
               <form
                 onSubmit={form.handleSubmit(onSubmit)}
                 className="space-y-8"
@@ -192,22 +221,46 @@ export default function InvitationPage() {
                       Accompany {index + 1}
                     </h3>
 
-                    <div className="grid gap-4">
+                    <div className="grid gap-3">
                       <Input
                         placeholder="Full Name"
                         {...form.register(`accompanies.${index}.name`)}
                       />
+                      {form.formState.errors.accompanies?.[index]?.name && (
+                        <p className="text-sm text-red-500">
+                          {
+                            form.formState.errors.accompanies[index]?.name
+                              ?.message
+                          }
+                        </p>
+                      )}
 
                       <Input
                         type="email"
                         placeholder="Email"
                         {...form.register(`accompanies.${index}.email`)}
                       />
+                      {form.formState.errors.accompanies?.[index]?.email && (
+                        <p className="text-sm text-red-500">
+                          {
+                            form.formState.errors.accompanies[index]?.email
+                              ?.message
+                          }
+                        </p>
+                      )}
 
                       <Input
                         placeholder="Mobile Number"
                         {...form.register(`accompanies.${index}.mobile`)}
                       />
+                      {form.formState.errors.accompanies?.[index]?.mobile && (
+                        <p className="text-sm text-red-500">
+                          {
+                            form.formState.errors.accompanies[index]?.mobile
+                              ?.message
+                          }
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
