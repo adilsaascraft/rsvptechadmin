@@ -18,6 +18,9 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { fetchClient } from '@/lib/fetchClient'
+import { apiRequest } from '@/lib/apiRequest'
+
 /* ================= SCHEMA ================= */
 
 const AccompanySchema = z.object({
@@ -52,10 +55,7 @@ export default function InvitationPage() {
     defaultValues: { accompanies: [] },
   })
 
-  const {
-    fields,
-    replace,
-  } = useFieldArray({
+  const { fields, replace } = useFieldArray({
     control: form.control,
     name: 'accompanies',
   })
@@ -71,11 +71,10 @@ export default function InvitationPage() {
 
     const fetchInvitation = async () => {
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/invitation/accompany-registration/${token}`
+        const res = await fetchClient(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/invitation/accompany-registration/${token}`,
+          { method: 'GET' }
         )
-
-        if (!res.ok) throw new Error('Invalid or expired invitation link')
 
         const data = await res.json()
 
@@ -112,19 +111,11 @@ export default function InvitationPage() {
     try {
       setSubmitting(true)
 
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/invitation/accompany-registration/${token}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values),
-        }
-      )
-
-      if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.message || 'Submission failed')
-      }
+      await apiRequest({
+        endpoint: `/api/invitation/accompany-registration/${token}`,
+        method: 'POST',
+        body: values,
+      })
 
       setSubmitted(true)
     } catch (err: any) {
