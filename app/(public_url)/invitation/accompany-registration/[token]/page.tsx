@@ -137,13 +137,13 @@ export default function InvitationPage() {
           fill
           priority
           sizes="100vw"
-          className="object-cover object-center"
+          className="object-fit object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-b from-white/30 via-transparent to-white/60" />
       </div>
 
       {/* ================= CONTENT ================= */}
-      <div className="max-w-4xl mx-auto px-4 -mt-16 pb-20">
+      <div className="max-w-4xl mx-auto px-4 mt-2 pb-20">
         <Card className="shadow-xl border-none">
           <CardHeader className="text-center">
             {loading ? (
