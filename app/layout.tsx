@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "USI LMS Admin Pannel",
-  description: "Admin Pannel for manage",
+  title: "Guest Invitation",
+  description: "Marriage Ceremony",
 };
 
 export default function RootLayout({
