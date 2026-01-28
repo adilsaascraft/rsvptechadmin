@@ -19,7 +19,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
-import { Checkbox } from "@/components/ui/checkbox"
+import { Checkbox } from '@/components/ui/checkbox'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+
 import AddGuestForm from '@/components/AddGuestForm'
 import { DataTable } from '@/components/DataTable'
 import { GuestFormValues } from '@/validations/guestSchema'
@@ -28,35 +30,127 @@ import EntitySkeleton from '@/components/EntitySkeleton'
 import { fetcher } from '@/lib/fetcher'
 import { apiRequest } from '@/lib/apiRequest'
 
-/* ================= HTML HELPERS ================= */
+/* ================= HELPERS ================= */
 
 const stripHtml = (html?: string) => {
   if (!html) return ''
-  return html
-    .replace(/<[^>]*>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .trim()
+  return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim()
+}
+
+const exportCSV = (filename: string, rows: Record<string, any>[]) => {
+  if (!rows.length) return
+
+  const headers = Object.keys(rows[0]).join(',')
+  const body = rows.map(r => Object.values(r).join(',')).join('\n')
+  const csv = `${headers}\n${body}`
+
+  const blob = new Blob([csv], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
 }
 
 /* ================= TYPES ================= */
 
-type GuestRow = GuestFormValues & { _id: string }
+type GuestRow = GuestFormValues & {
+  _id: string
+  regNum: string
+  invitationStatus: string
+}
+
+type AccompanyRow = {
+  id: string
+
+  primaryName: string
+  primaryRegNum: string
+  primaryEmail: string
+  primaryMobile: string
+
+  accompanyName: string
+  accompanyRegNum: string
+  accompanyEmail: string
+  accompanyMobile: string
+}
+
+type AccompanyGroup = {
+  _id: string
+  guestId: {
+    _id: string
+    name: string
+    email: string
+    mobile: string
+    regNum: string
+    accompanyQuota: number
+    invitationStatus: string
+  }
+  accompanies: {
+    _id: string
+    name: string
+    email: string
+    mobile: string
+    accompanyRegNum: string
+  }[]
+}
 
 /* ================= COMPONENT ================= */
 
 export default function GuestClient() {
+  const [activeTab, setActiveTab] =
+    useState<'guests' | 'accompanies'>('guests')
+
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingGuest, setEditingGuest] = useState<GuestRow | null>(null)
   const [viewDescription, setViewDescription] = useState<string | null>(null)
 
-  /* ================= FETCH ================= */
+  /* ========== PRIMARY GUESTS ========== */
 
-  const { data, isLoading, mutate } = useSWR(
+  const {
+    data: guestData,
+    isLoading: guestLoading,
+    mutate: mutateGuests,
+  } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/api/admin/guests`,
     fetcher
   )
 
-  const guests: GuestRow[] = useMemo(() => data ?? [], [data])
+  const guests: GuestRow[] = useMemo(() => guestData ?? [], [guestData])
+
+  /* ========== ACCOMPANIES ========== */
+
+  const {
+    data: accompanyData,
+    isLoading: accompanyLoading,
+  } = useSWR(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/admin/accompanies`,
+    fetcher
+  )
+
+  const accompanyGroups: AccompanyGroup[] =
+    accompanyData?.accompanies ?? []
+
+  const accompanyRows: AccompanyRow[] = useMemo(() => {
+    if (!accompanyGroups.length) return []
+
+    return accompanyGroups.flatMap(group =>
+      group.accompanies.map(acc => ({
+        id: acc._id,
+
+        primaryName: group.guestId.name,
+        primaryRegNum: group.guestId.regNum,
+        primaryEmail: group.guestId.email,
+        primaryMobile: group.guestId.mobile,
+
+        accompanyName: acc.name,
+        accompanyRegNum: acc.accompanyRegNum,
+        accompanyEmail: acc.email,
+        accompanyMobile: acc.mobile,
+      }))
+    )
+  }, [accompanyGroups])
 
   /* ================= HANDLERS ================= */
 
@@ -71,7 +165,7 @@ export default function GuestClient() {
   }
 
   const handleSave = async () => {
-    await mutate()
+    await mutateGuests()
     setSheetOpen(false)
     setEditingGuest(null)
   }
@@ -84,78 +178,84 @@ export default function GuestClient() {
         showToast: true,
         successMessage: 'Guest deleted successfully',
       })
-      await mutate()
+      await mutateGuests()
     } catch (err: any) {
       toast.error(err.message)
     }
   }
 
-  /* ================= COLUMNS ================= */
+  /* ================= EXPORT ================= */
 
-  const columns: ColumnDef<GuestRow>[] = [
+  const handleExport = () => {
+    if (activeTab === 'guests') {
+      exportCSV(
+        'primary-guests.csv',
+        guests.map(g => ({
+          Name: g.name,
+          Email: g.email,
+          Mobile: g.mobile,
+          RegNo: g.regNum,
+          Quota: g.accompanyQuota,
+          Status: g.invitationStatus,
+        }))
+      )
+    } else {
+      exportCSV(
+        'accompanies.csv',
+        accompanyRows.map(a => ({
+          PrimaryGuest: a.primaryName,
+          PrimaryRegNo: a.primaryRegNum,
+          AccompanyName: a.accompanyName,
+          AccompanyRegNo: a.accompanyRegNum,
+          Email: a.accompanyEmail,
+          Mobile: a.accompanyMobile,
+        }))
+      )
+    }
+  }
+
+  /* ================= PRIMARY GUEST COLUMNS ================= */
+
+  const guestColumns: ColumnDef<GuestRow>[] = [
     {
       id: 'select',
       header: ({ table }) => (
         <Checkbox
           checked={table.getIsAllPageRowsSelected()}
-          onCheckedChange={(value) => table.toggleAllPageRowsSelected(!!value)}
-          aria-label="Select all"
+          onCheckedChange={v => table.toggleAllPageRowsSelected(!!v)}
         />
       ),
       cell: ({ row }) => (
         <Checkbox
           checked={row.getIsSelected()}
-          onCheckedChange={(value) => row.toggleSelected(!!value)}
-          aria-label="Select row"
+          onCheckedChange={v => row.toggleSelected(!!v)}
         />
       ),
       enableSorting: false,
-      enableHiding: false,
     },
-    {
-      accessorKey: 'regNum',
-      header: sortableHeader('Reg. No.'),
-    },
-    {
-      accessorKey: 'name',
-      header: sortableHeader('Full Name'),
-    },
-    {
-      accessorKey: 'email',
-      header: sortableHeader('Email'),
-    },
-    {
-      accessorKey: 'mobile',
-      header: sortableHeader('Mobile'),
-    },
+    { accessorKey: 'regNum', header: sortableHeader('Reg. No.') },
+    { accessorKey: 'name', header: sortableHeader('Name') },
+    { accessorKey: 'email', header: sortableHeader('Email') },
+    { accessorKey: 'mobile', header: sortableHeader('Mobile') },
     {
       accessorKey: 'accompanyQuota',
-      header: sortableHeader('Accompany Quota'),
-      cell: ({ row }) => (
-        <span className="font-medium">{row.original.accompanyQuota}</span>
-      ),
+      header: sortableHeader('Quota'),
     },
     {
       accessorKey: 'description',
       header: 'Welcome Message',
       cell: ({ row }) => {
-        const plainText = stripHtml(row.original.description)
-
+        const text = stripHtml(row.original.description)
         return (
           <div className="flex flex-col gap-1">
-            <span className="text-muted-foreground text-sm">
-              {plainText
-                ? plainText.length > 60
-                  ? plainText.slice(0, 60) + '…'
-                  : plainText
-                : '—'}
+            <span className="text-sm text-muted-foreground">
+              {text ? text.slice(0, 60) + '…' : '—'}
             </span>
-
-            {plainText && (
+            {text && (
               <Button
                 variant="link"
                 size="sm"
-                className="h-auto p-0 text-[#3AC1F6]"
+                className="p-0 h-auto"
                 onClick={() =>
                   setViewDescription(row.original.description || '')
                 }
@@ -182,7 +282,7 @@ export default function GuestClient() {
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button size="sm" className="bg-[#3AC1F6] hover:bg-[#1FAEE8]">
+              <Button size="sm" className="bg-[#3AC1F6] hover:bg-[#1FAEE8] text-white">
                 Delete
               </Button>
             </AlertDialogTrigger>
@@ -192,10 +292,7 @@ export default function GuestClient() {
                 <AlertDialogTitle>Delete Guest?</AlertDialogTitle>
                 <AlertDialogDescription>
                   This will permanently delete{' '}
-                  <span className="font-semibold">
-                    {row.original.name}
-                  </span>
-                  .
+                  <b>{row.original.name}</b>.
                 </AlertDialogDescription>
               </AlertDialogHeader>
 
@@ -215,31 +312,99 @@ export default function GuestClient() {
     },
   ]
 
-  /* ================= UI STATES ================= */
+  /* ================= ACCOMPANY COLUMNS ================= */
 
-  if (isLoading) return <EntitySkeleton title="Guests" />
+  const accompanyColumns: ColumnDef<AccompanyRow>[] = [
+    {
+      id: 'select',
+      header: ({ table }) => (
+        <Checkbox
+          checked={table.getIsAllPageRowsSelected()}
+          onCheckedChange={v => table.toggleAllPageRowsSelected(!!v)}
+        />
+      ),
+      cell: ({ row }) => (
+        <Checkbox
+          checked={row.getIsSelected()}
+          onCheckedChange={v => row.toggleSelected(!!v)}
+        />
+      ),
+      enableSorting: false,
+    },
+    {
+      header: 'Primary Guest',
+      cell: ({ row }) => (
+        <div>
+          <div className="font-medium">{row.original.primaryName}</div>
+          <div className="text-xs text-muted-foreground">
+            {row.original.primaryRegNum}
+          </div>
+        </div>
+      ),
+    },
+    {
+      header: 'Primary Contact',
+      cell: ({ row }) => (
+        <div>
+          <div>{row.original.primaryEmail}</div>
+          <div className="text-xs text-muted-foreground">
+            {row.original.primaryMobile}
+          </div>
+        </div>
+      ),
+    },
+    { accessorKey: 'accompanyName', header: 'Accompany Name' },
+    { accessorKey: 'accompanyRegNum', header: 'Accompany Reg. No.' },
+    { accessorKey: 'accompanyEmail', header: 'Email' },
+    { accessorKey: 'accompanyMobile', header: 'Mobile' },
+  ]
 
-  /* ================= UI ================= */
+  if (guestLoading) return <EntitySkeleton title="Guests" />
 
   return (
     <div className="bg-background text-foreground">
-      {/* Header */}
       <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold text-[#3AC1F6]">All Guests</h1>
-        <Button
-          onClick={handleAdd}
-          className="font-semibold bg-[#3AC1F6] hover:bg-[#1FAEE8] text-white"
-        >
-          + Add Guest
-        </Button>
+        <h1 className="text-2xl font-bold text-[#3AC1F6]">
+          Guest Management
+        </h1>
+
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={handleExport}>
+            Export CSV
+          </Button>
+
+          {activeTab === 'guests' && (
+            <Button
+              onClick={handleAdd}
+              className="bg-[#3AC1F6] hover:bg-[#1FAEE8] text-white"
+            >
+              + Add Guest
+            </Button>
+          )}
+        </div>
       </div>
 
-      {/* Table */}
-      <DataTable data={guests} columns={columns} />
+      <Tabs value={activeTab} onValueChange={v => setActiveTab(v as any)}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="guests">Primary Guests</TabsTrigger>
+          <TabsTrigger value="accompanies">Accompanies</TabsTrigger>
+        </TabsList>
 
-      {/* Add / Edit Sheet */}
+        <TabsContent value="guests">
+          <DataTable data={guests} columns={guestColumns} />
+        </TabsContent>
+
+        <TabsContent value="accompanies">
+          {accompanyLoading ? (
+            <EntitySkeleton title="Accompanies" />
+          ) : (
+            <DataTable data={accompanyRows} columns={accompanyColumns} />
+          )}
+        </TabsContent>
+      </Tabs>
+
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="right" className="w-[520px] sm:w-[620px]">
+        <SheetContent side="right" className="w-[620px]">
           <div className="p-4 border-b">
             <h2 className="text-xl font-semibold">
               {editingGuest ? 'Edit Guest' : 'Add Guest'}

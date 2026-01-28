@@ -80,7 +80,7 @@ export default function AddGuestForm({
       if (!res.ok) throw new Error(json.message || 'Failed to save')
 
       toast.success(
-        defaultValues ? 'Guest updated successfully!' : 'Guest created successfully!',
+        defaultValues ? 'Guest record updated successfully!' : 'Guest Invitation sent successfully!',
         { description: getIndianFormattedDate() }
       )
 
