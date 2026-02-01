@@ -106,51 +106,80 @@ export default function GuestClient() {
   const [editingGuest, setEditingGuest] = useState<GuestRow | null>(null)
   const [viewDescription, setViewDescription] = useState<string | null>(null)
 
-  /* ========== PRIMARY GUESTS ========== */
 
   const {
     data: guestData,
     isLoading: guestLoading,
+    error: guestError,
     mutate: mutateGuests,
   } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/api/admin/guests`,
     fetcher
   )
 
-  const guests: GuestRow[] = useMemo(() => guestData ?? [], [guestData])
+  const guests: GuestRow[] = useMemo(() => {
+    if (!Array.isArray(guestData)) return []
+    return guestData
+  }, [guestData])
 
   /* ========== ACCOMPANIES ========== */
 
   const {
     data: accompanyData,
     isLoading: accompanyLoading,
+    error: accompanyError,
   } = useSWR(
     `${process.env.NEXT_PUBLIC_API_URL}/api/admin/accompanies`,
     fetcher
   )
 
-  const accompanyGroups: AccompanyGroup[] =
-    accompanyData?.accompanies ?? []
+  const accompanyGroups: AccompanyGroup[] = useMemo(() => {
+    if (!accompanyData) return []
+    if (!Array.isArray(accompanyData.accompanies)) return []
+    return accompanyData.accompanies
+  }, [accompanyData])
 
   const accompanyRows: AccompanyRow[] = useMemo(() => {
     if (!accompanyGroups.length) return []
 
-    return accompanyGroups.flatMap(group =>
-      group.accompanies.map(acc => ({
-        id: acc._id,
+    return accompanyGroups.flatMap(group => {
+      if (!group || !Array.isArray(group.accompanies)) return []
 
-        primaryName: group.guestId.name,
-        primaryRegNum: group.guestId.regNum,
-        primaryEmail: group.guestId.email,
-        primaryMobile: group.guestId.mobile,
+      const guest = group.guestId
+      const isOrphan = !guest
 
-        accompanyName: acc.name,
-        accompanyRegNum: acc.accompanyRegNum,
-        accompanyEmail: acc.email,
-        accompanyMobile: acc.mobile,
-      }))
-    )
+      const primaryName = isOrphan ? '[Deleted Guest]' : guest?.name ?? '—'
+      const primaryRegNum = guest?.regNum ?? '—'
+      const primaryEmail = guest?.email ?? '—'
+      const primaryMobile = guest?.mobile ?? '—'
+
+      return group.accompanies
+        .filter(acc => acc && acc._id)
+        .map(acc => ({
+          id: acc._id,
+
+          primaryName,
+          primaryRegNum,
+          primaryEmail,
+          primaryMobile,
+
+          accompanyName: acc.name ?? '—',
+          accompanyRegNum: acc.accompanyRegNum ?? '—',
+          accompanyEmail: acc.email ?? '—',
+          accompanyMobile: acc.mobile ?? '—',
+        }))
+    })
   }, [accompanyGroups])
+
+  /* ========== OPTIONAL UI SAFETY ========== */
+
+  if (guestLoading || accompanyLoading) {
+    return <div>Loading…</div>
+  }
+
+  if (guestError || accompanyError) {
+    return <div>Failed to load data</div>
+  }
 
   /* ================= HANDLERS ================= */
 
