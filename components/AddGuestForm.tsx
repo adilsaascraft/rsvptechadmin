@@ -58,6 +58,30 @@ export default function AddGuestForm({
     return () => sub.unsubscribe()
   }, [form.watch, defaultValues?._id])
 
+
+  useEffect(() => {
+  if (defaultValues?._id) {
+    // EDIT MODE → prefill form
+    form.reset({
+      name: defaultValues.name,
+      email: defaultValues.email,
+      mobile: defaultValues.mobile,
+      accompanyQuota: defaultValues.accompanyQuota ?? 0,
+      description: defaultValues.description || '',
+    })
+  } else {
+    // ADD MODE → fresh empty form
+    form.reset({
+      name: '',
+      email: '',
+      mobile: '',
+      accompanyQuota: 0,
+      description: '',
+    })
+  }
+}, [defaultValues, form])
+
+
   /* ================= SUBMIT ================= */
 
   const onSubmit = async (data: GuestFormValues) => {
@@ -85,8 +109,15 @@ export default function AddGuestForm({
       )
 
       await onSave(json.data)
-      form.reset()
       clearDraft(DRAFT_KEY)
+      form.reset({
+        name: '',
+        email: '',
+        mobile: '',
+        accompanyQuota: 0,
+        description: '',
+      })
+
     } catch (err: any) {
       toast.error(err.message || 'Something went wrong ❌')
     } finally {
@@ -212,8 +243,8 @@ export default function AddGuestForm({
               ? 'Updating...'
               : 'Creating...'
             : defaultValues
-            ? 'Update'
-            : 'Create'}
+              ? 'Update'
+              : 'Create'}
         </Button>
       </div>
     </div>
