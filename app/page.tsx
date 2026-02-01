@@ -1,6 +1,27 @@
-// app/page.tsx
-import { redirect } from 'next/navigation'
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuthStore } from '@/stores/authStore'
 
 export default function Home() {
-  redirect('/dashboard') // or '/login'
+  const router = useRouter()
+  const { isAuthenticated, isLoading, hydrate } = useAuthStore()
+
+  // 🔐 Bootstrap auth once
+  useEffect(() => {
+    hydrate()
+  }, [])
+
+  // 🔁 Redirect after auth check
+  useEffect(() => {
+    if (isLoading) return
+
+    if (isAuthenticated) {
+      router.replace('/dashboard')
+    } else {
+      router.replace('/login')
+    }
+  }, [isLoading, isAuthenticated])
+  return null
 }
